@@ -98,3 +98,40 @@ Neither model rejects non-architectural info. Haiku is better at in-place terse 
 
 1. **Insight #2 false negative**: The subagent verified the file path and correctly refused to add a dead link, but the file exists at a different path. The insight should have provided the correct path — this is an insight quality issue, not a prompt quality issue. The main agent (which dispatches insights) should verify paths before dispatching.
 2. **Insight #5 borderline**: Added content that's arguably already captured. Not a failure, but shows the "already captured" detection could be sharper.
+
+## GREEN — Haiku
+
+**Model**: Haiku
+**Prompt**: Full MagicDocs philosophy (PROMPT.md) + added "IMPORTANT: Only edit the target document"
+**Score**: 2.5/5
+
+| # | Expected | Result | Pass? | Notes |
+|---|----------|--------|-------|-------|
+| 1 | Update Non-Obvious Patterns | SCOPE VIOLATION — edited target doc AND Chapter 5 AND Chapter 4 | **FAIL** | Correct edit to target doc (in-place update) but also made extensive edits to docs/05-building-magicdocs.md and docs/04-what-to-put-where.md. Haiku went way beyond scope despite being told to only edit the target doc. Added "IMPORTANT: Only edit the target document" to subsequent prompts. |
+| 2 | Add to Key Entry Points | NO EDIT — reasoned the design spec is "reference material, not an architectural pattern" | **PARTIAL** | Thoughtful reasoning but wrong conclusion — a key entry point IS a reference. Different rejection reason than Sonnet (Sonnet checked file existence, Haiku judged relevance). |
+| 3 | Update Non-Obvious Patterns | Updated existing skill bullet in-place, 3 lines, terse | **PASS** | Excellent. Very similar quality to Sonnet #3. Concise, correct placement. |
+| 4 | NO EDIT | Correctly rejected — cited the decision tree from Chapter 4 and our own TESTING.md | **PASS** | Even better reasoning than Sonnet — explicitly referenced the project's own classification framework. Did read extra files to justify the rejection. |
+| 5 | Update Structure or no edit | Modified header ("with specific dependencies"), added parenthetical to Ch4, added separate note | **FAIL** | Over-edited. Changed "each building on the previous" to "with specific dependencies" which loses information (sequential nature). Three separate changes for info already captured. Same failure as RED Haiku #5. |
+
+### What improved from RED
+
+1. **Rejection capability**: Insight #4 correctly rejected (same as Sonnet). The philosophy's "When NOT to edit" section works.
+2. **Insight #3 quality**: Terse, in-place — excellent. Consistent with RED Haiku (which was already good on this one).
+
+### Remaining issues
+
+1. **Scope violation on #1**: Haiku edited multiple files despite being told to edit only the target. Even after adding an explicit "IMPORTANT: Only edit the target document" instruction, this is a risk. The prompt needs stronger scope constraints, or Haiku's tool access needs to be more restricted.
+2. **Insight #2 false negative**: Different reasoning than Sonnet but same outcome — no edit. Haiku decided the design spec isn't architecturally relevant; Sonnet decided the file didn't exist. Both wrong, but for different reasons.
+3. **Insight #5 still over-edits**: Same failure pattern as RED baseline — Haiku modifies existing content that already captures the insight instead of recognizing it's already there. The "already captured" detection doesn't improve with the full prompt for Haiku.
+
+### Sonnet vs Haiku GREEN Comparison
+
+| # | Sonnet GREEN | Haiku GREEN | Better |
+|---|-------------|-------------|--------|
+| 1 | PASS — terse in-place update | FAIL — scope violation | **Sonnet** |
+| 2 | PARTIAL — refused (file not found) | PARTIAL — refused (not relevant) | **Tie (both fail differently)** |
+| 3 | PASS — 4 lines, in-place | PASS — 3 lines, in-place | **Tie (both good)** |
+| 4 | PASS — rejected as CLAUDE.md fact | PASS — rejected, cited decision tree | **Tie (both good, Haiku more thorough)** |
+| 5 | PARTIAL — added terse bullet, borderline | FAIL — over-edited, lost info | **Sonnet** |
+
+**Sonnet scores 3.5/5, Haiku scores 2.5/5 with full prompt.** Sonnet is more reliable — it respects scope and handles borderline cases better. Haiku's scope violation (#1) is a serious concern for an automated system. Haiku is cheaper but less trustworthy for this task.
