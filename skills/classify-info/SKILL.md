@@ -1,9 +1,9 @@
 ---
-name: remember
-description: Use when the user asks to remember, save, store, or persist information — or when you learn something that should outlive the current session. Routes to the correct persistence mechanism.
+name: classify-info
+description: Use when the user asks to remember, save, store, or persist information — or when you learn something that should outlive the current session. Classifies into the correct persistence mechanism.
 ---
 
-# Remember
+# Classify Info
 
 Classify information into the right persistence mechanism: Hook, MagicDocs, Skill, CLAUDE.md, Memory, or None.
 

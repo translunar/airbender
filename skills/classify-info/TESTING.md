@@ -1,4 +1,4 @@
-# Testing: /remember skill
+# Testing: /classify-info skill
 
 ## Test suite: 24 classification items
 
@@ -279,4 +279,4 @@ The model natively gets Hook, Skill, CLAUDE.md (core), and None correct without 
 
 ## Self-classification
 
-Running /remember on itself: the skill prescribes a multi-step procedure (actionability → mechanical → describe/prescribe → steps → always/sometimes → route). Classification: **Skill**. It correctly classifies itself.
+Running /classify-info on itself: the skill prescribes a multi-step procedure (actionability → mechanical → describe/prescribe → steps → always/sometimes → route). Classification: **Skill**. It correctly classifies itself.
