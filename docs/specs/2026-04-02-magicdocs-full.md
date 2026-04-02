@@ -92,7 +92,7 @@ Main agent does normal work
 ┌─────────────────────────────────────────────────────────┐
 │               MagicDocs Subagent (Sonnet)                │
 │                                                          │
-│  Tools: Glob, Read, Edit only. No Bash, no Write.       │
+│  Tools: Read, Edit only. No Glob, Bash, or Write.       │
 │  Reads target doc → integrates insight → exits           │
 │  Edits left unstaged for user to commit                  │
 │  Fresh per dispatch — no persistence, no stale state     │
@@ -115,13 +115,13 @@ Main agent does normal work
 
 ### Model
 
-Sonnet or Haiku — to be determined by MVP testing. Anthropic uses Sonnet, but their agent receives the full conversation transcript (harder task). Our agent receives a pre-digested insight and just needs to read a doc and make a terse edit — potentially simple enough for Haiku, which would be significantly cheaper. The MVP tests both and compares edit quality.
+Sonnet (recommended). MVP testing showed Sonnet scores 5/5 and Haiku 4.5/5 after one REFACTOR round. Haiku is viable for cost-sensitive deployments but less reliable on borderline cases (over-edits content that's arguably already captured). Both models require the `Read, Edit` only toolset — Haiku had scope violations with Glob access.
 
 ### Tools
 
-`Glob, Read, Edit` only. No Write (can't create new docs — that's `/create-magic-doc`). No Bash (prevents unconstrained shell access from an automated agent).
+`Read, Edit` only. No Glob (MVP proved dropping Glob prevents scope violations — Haiku edited unrelated files when it could discover them). No Write (can't create new docs — that's `/create-magic-doc`). No Bash (prevents unconstrained shell access).
 
-Why Glob and Read when Anthropic uses Edit only? Anthropic pre-loads doc contents via template variables. We can't use template variables, so the subagent needs to find and read docs itself. The subagent always reads the most recent version on disk — never stale contents from the main agent.
+Why Read when Anthropic uses Edit only? Anthropic pre-loads doc contents via template variables. We can't use template variables, so the subagent needs to read the target doc itself. The dispatch message specifies the exact file path — the subagent doesn't need to discover anything. It always reads the most recent version on disk.
 
 ### Prompt
 
@@ -161,10 +161,12 @@ Short, specific, actionable. The subagent knows what the confusion is, what the 
 
 ### Dispatch Mechanism
 
+**Before dispatching, the main agent must verify all file paths in the insight exist on disk.** The MVP showed that incorrect paths cause false negatives — the subagent correctly refuses to add dead links, but the insight was about a real file at a different path. Path verification is the main agent's responsibility.
+
 The main agent spawns the subagent directly using the Agent tool:
 - `model: "sonnet"`
 - `run_in_background: true` (fire-and-forget, doesn't block main work)
-- Tools: `Glob, Read, Edit`
+- Tools: `Read, Edit`
 - Prompt: adapted MagicDocs prompt + insight + target doc path
 
 No intermediate queue, no task list, no coordination layer. The simplest dispatch that works.
@@ -323,8 +325,8 @@ No new skill needed. The flow uses existing pieces:
 2. Runs `/classify-info` → classifies as MagicDocs
 3. `/classify-info` returns the classification — does NOT dispatch
 4. Main agent formulates the insight (format described above)
-5. Main agent specifies target doc (it just encountered the insight, so it knows which subsystem)
-6. Main agent spawns fresh Sonnet subagent with `run_in_background: true`
+5. Main agent specifies target doc and **verifies all file paths exist on disk**
+6. Main agent spawns fresh Sonnet subagent with `run_in_background: true`, tools: `Read, Edit`
 7. Subagent reads the doc, integrates the insight (or declines if already captured / not substantial), exits
 8. Edits left unstaged
 
