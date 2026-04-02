@@ -135,3 +135,33 @@ Neither model rejects non-architectural info. Haiku is better at in-place terse 
 | 5 | PARTIAL — added terse bullet, borderline | FAIL — over-edited, lost info | **Sonnet** |
 
 **Sonnet scores 3.5/5, Haiku scores 2.5/5 with full prompt.** Sonnet is more reliable — it respects scope and handles borderline cases better. Haiku's scope violation (#1) is a serious concern for an automated system. Haiku is cheaper but less trustworthy for this task.
+
+## REFACTOR 1
+
+**Changes made:**
+1. **Dropped Glob from toolset** — subagent gets `Read, Edit` only. The insight dispatch specifies the target doc path, so the subagent doesn't need to discover anything. This prevents scope violations (Haiku #1 edited Chapter 5 because it could Glob and find other files).
+2. **Fixed insight #2 path** — changed `docs/magicdocs-design-questions.md` to `docs/reference/magicdocs-design-questions.md`. This was an insight quality issue, not a prompt issue. Lesson: the main agent must verify file paths before dispatching insights.
+
+### Re-run results
+
+| # | Model | GREEN result | REFACTOR result | Fixed? |
+|---|-------|-------------|-----------------|--------|
+| 1 | Haiku | FAIL — scope violation (edited Ch5 and Ch4) | PASS — only edited target doc, in-place update, correct section | **YES** — dropping Glob fixed scope |
+| 2 | Sonnet | PARTIAL — refused (file not found) | PASS — one line, right section, terse | **YES** — correct path fixed it |
+| 2 | Haiku | PARTIAL — refused (not relevant) | PASS — one line, right section, terse | **YES** — correct path fixed it |
+| 5 | Haiku | FAIL — over-edited (3 changes, lost info) | PARTIAL — added terse bullet, borderline same as Sonnet GREEN | **IMPROVED** — no longer modifies Structure header |
+
+### REFACTOR scores
+
+| Model | RED | GREEN | REFACTOR |
+|-------|-----|-------|----------|
+| Sonnet | 1/5 | 3.5/5 | 4.5/5 |
+| Haiku | 1/5 | 2.5/5 | 4/5 |
+
+### Key findings
+
+1. **Dropping Glob eliminates scope violations.** The subagent can't edit files it can't discover. With `Read, Edit` only and a specified target path, both models stay scoped.
+2. **Insight quality matters as much as prompt quality.** The #2 false negative was caused by an incorrect file path in the insight, not by the prompt. The dispatching main agent must verify paths.
+3. **Haiku is now viable.** With scope violations fixed, Haiku's quality is close to Sonnet's. The remaining gap is on borderline #5 (over-editing vs recognizing already-captured content), which is minor.
+4. **Both models reliably reject non-architectural content (#4)** with the full MagicDocs philosophy. This was the biggest RED failure and is fully fixed.
+5. **#5 remains borderline for both models.** Both add content that's arguably already captured by "each building on the previous." This is an acceptable outcome per the spec — both valid behaviors.

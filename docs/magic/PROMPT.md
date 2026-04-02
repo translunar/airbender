@@ -2,6 +2,7 @@
 
 Template for dispatching insights to a MagicDocs update subagent.
 Variables: {{insight}}, {{docPath}}
+Tools: Read, Edit only (no Glob — prevents scope violations)
 
 ---
 
