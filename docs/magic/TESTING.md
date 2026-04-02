@@ -165,3 +165,39 @@ Neither model rejects non-architectural info. Haiku is better at in-place terse 
 3. **Haiku is now viable.** With scope violations fixed, Haiku's quality is close to Sonnet's. The remaining gap is on borderline #5 (over-editing vs recognizing already-captured content), which is minor.
 4. **Both models reliably reject non-architectural content (#4)** with the full MagicDocs philosophy. This was the biggest RED failure and is fully fixed.
 5. **#5 remains borderline for both models.** Both add content that's arguably already captured by "each building on the previous." This is an acceptable outcome per the spec — both valid behaviors.
+
+## Summary
+
+### Progression
+
+| Phase | Sonnet | Haiku | Key Changes |
+|-------|--------|-------|-------------|
+| RED baseline | 1/5 | 1/5 | — |
+| GREEN | 3.5/5 | 2.5/5 | Full MagicDocs philosophy added |
+| REFACTOR 1 | 4.5/5 | 4/5 | Drop Glob (scope fix), correct insight #2 path |
+
+### Model recommendation
+
+**Sonnet** for production use. With REFACTOR changes, Haiku is close (4/5 vs 4.5/5) and significantly cheaper, but Sonnet is more reliable on borderline cases and doesn't require the "only edit this file" guardrail as strongly. For cost-sensitive deployments, Haiku with `Read, Edit` only toolset is viable.
+
+### Prompt iteration count
+
+1 REFACTOR round. The full MagicDocs philosophy (GREEN) did most of the heavy lifting. The REFACTOR fixed two issues: (1) a toolset problem (Glob enabling scope violations) and (2) an insight quality problem (wrong file path).
+
+### Key prompt adjustments
+
+1. **MagicDocs philosophy (GREEN)**: The "What NOT to document" and "When NOT to edit" sections gave the subagent the ability to reject non-architectural content. This was the single biggest improvement (0 → 100% rejection accuracy on #4).
+2. **Read+Edit only toolset (REFACTOR)**: Eliminating Glob prevents the subagent from discovering and editing files beyond its target. This is a mechanical constraint, not a prompt change — but it's essential for Haiku.
+
+### Verdict: PASS
+
+The core loop works. A Sonnet subagent with the adapted MagicDocs prompt and `Read, Edit` tools produces useful, terse, architecturally-focused edits from terse insights. The prompt doesn't need major rework — one REFACTOR round was sufficient.
+
+**Key design implications for the full system:**
+- Toolset should be `Read, Edit` only — no Glob needed since the dispatch specifies the target doc
+- The dispatching main agent must verify file paths before sending insights
+- Sonnet is the recommended model; Haiku is a viable cost-sensitive alternative
+- The MagicDocs philosophy is essential — without it, both models accept non-architectural content and produce verbose edits
+- "Already captured" detection is imperfect (#5) but acceptable — worst case is a mildly redundant bullet, not a harmful edit
+
+**Next step:** Invoke `/writing-skills` to build `/setup-magicdocs` and `/create-magic-doc` per `docs/specs/2026-04-02-magicdocs-full.md`.
