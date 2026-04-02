@@ -72,3 +72,29 @@
 | 5 | FAIL — appended redundant bullet | FAIL — over-edited 3 places | **Tie (both fail)** |
 
 Neither model rejects non-architectural info. Haiku is better at in-place terse updates. Sonnet is better at using existing structure (Key Entry Points). Both fail on the same fundamental issues — the philosophy should fix these.
+
+## GREEN — Sonnet
+
+**Model**: Sonnet
+**Prompt**: Full MagicDocs philosophy (PROMPT.md)
+**Score**: 3.5/5
+
+| # | Expected | Result | Pass? | Notes |
+|---|----------|--------|-------|-------|
+| 1 | Update Non-Obvious Patterns | Updated existing Ch5 bullet in-place, terse, direct | **PASS** | Huge improvement — replaced vague "needs updating" with clear statement. 3 lines, no filler. |
+| 2 | Add to Key Entry Points | NO EDIT — rejected because `docs/magicdocs-design-questions.md` doesn't exist at that path | **PARTIAL FAIL** | Correct rejection logic (don't add dead links) but the file exists at `docs/reference/magicdocs-design-questions.md`. The insight gave the wrong path. This is an insight quality issue, not a prompt quality issue. |
+| 3 | Update Non-Obvious Patterns | Updated existing skill bullet in-place, terse | **PASS** | 4 lines, concise. Named the 4 native categories and 2 boundaries. Much better than RED's 6-line bloat. |
+| 4 | NO EDIT | Correctly rejected — "CLAUDE.md-level fact, not architectural information" | **PASS** | Perfect. Exactly the reasoning we wanted. RED baseline failed this completely. |
+| 5 | Update Structure or no edit | Added terse bullet to Non-Obvious Patterns about Ch2→Ch3→Ch4 dependency | **PARTIAL** | Acceptable — the edit is terse and well-placed, but the info is arguably already captured by "each building on the previous." The subagent acknowledged this but added specifics. Both outcomes are valid per spec. |
+
+### What improved from RED
+
+1. **Rejection capability**: Insight #4 (pnpm) correctly rejected with precise reasoning. This was the biggest RED failure.
+2. **In-place updates**: #1 and #3 both updated existing bullets rather than appending new content.
+3. **Terseness**: All edits are significantly shorter and higher-signal.
+4. **Pruning**: #1 replaced outdated phrasing ("needs updating") with current-state language.
+
+### Remaining issues
+
+1. **Insight #2 false negative**: The subagent verified the file path and correctly refused to add a dead link, but the file exists at a different path. The insight should have provided the correct path — this is an insight quality issue, not a prompt quality issue. The main agent (which dispatches insights) should verify paths before dispatching.
+2. **Insight #5 borderline**: Added content that's arguably already captured. Not a failure, but shows the "already captured" detection could be sharper.
