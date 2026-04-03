@@ -215,72 +215,59 @@ The incremental insight dispatch model (Channel 1) solves these: updates happen 
 
 ## Putting it all together
 
-Here's what you've built — a documentation system that mirrors Anthropic's internal MagicDocs pipeline using user-accessible primitives:
+Here's the architecture — a documentation system that replicates Anthropic's internal MagicDocs using user-accessible primitives:
 
 ```
-┌─────────────────────────────────────────────────┐
-│                 Your Session                     │
-│                                                  │
-│  You work with Claude Code on your project.      │
-│  Architectural decisions are made. Patterns are   │
-│  discovered. Gotchas are encountered.             │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│              Stop Hook Triggers                  │
-│                                                  │
-│  Session ends → hook runs headless claude -p      │
-│  with --model sonnet and restricted tools         │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│           Headless Claude Updates Docs            │
-│                                                  │
-│  Reads docs/magic/*.md                            │
-│  Reads recent git diff                            │
-│  Updates relevant docs in-place                   │
-│  Removes outdated info                            │
-│  Skips if nothing substantial to add              │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│            Next Session Loads Docs               │
-│                                                  │
-│  Updated docs are available in the codebase.      │
-│  Claude Code can read them via Explore/Read.      │
-│  Or reference them from CLAUDE.md.                │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Main Agent Session                    │
+│                                                          │
+│  Normal work → encounters non-obvious thing              │
+│  → /classify-info classifies as MagicDocs                │
+│  → formulates insight + specifies target doc             │
+│  → spawns fresh Sonnet subagent (background)             │
+└────────────────────────┬────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│               MagicDocs Subagent (Sonnet)                │
+│                                                          │
+│  Tools: Read, Edit only                                  │
+│  Reads target doc → integrates insight → exits           │
+│  Edits left unstaged for user to commit                  │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│              Stop Hook (Pruning Safety Net)              │
+│                                                          │
+│  Session ends → checks git diff                          │
+│  If changes: reconciles docs against diff                │
+│  Fixes stale file paths, removes dead references         │
+│  Does NOT add new insights — only prunes                 │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Making docs discoverable in future sessions
+The key difference from the old model: updates happen **during** the session with full conversation context (Channel 1), not after the session with only diffs (Channel 3). The Stop hook is a safety net, not the primary mechanism.
 
-Your Magic Docs are files on disk, but Claude Code won't automatically read them unless it has a reason to. To close the loop, add a pointer in your CLAUDE.md:
+### Making docs discoverable
 
-```markdown
-# CLAUDE.md
-Architectural documentation is maintained in docs/magic/. Read the relevant
-Magic Doc before making changes to a subsystem you're unfamiliar with.
-```
+`/setup-magicdocs` handles this automatically — it adds two items to CLAUDE.md:
 
-This uses CLAUDE.md for what it's good at — a short, always-present pointer that sets a prior ("docs exist, read them first") without trying to contain the documentation itself. This is also the right division of labor: CLAUDE.md holds the environmental fact ("docs are here"), while the Magic Docs hold the architectural knowledge that would otherwise bloat CLAUDE.md and go stale without maintenance. Magic Docs self-correct through the development loop; CLAUDE.md content doesn't (see [Chapter 2: the verification gap](02-context-engineering.md#whats-missing-verification)). If you find yourself putting architectural descriptions in CLAUDE.md — how components connect, what talks to what, where entry points are — that content belongs in Magic Docs instead.
+1. A pointer telling future sessions where docs live (including co-located docs discoverable via `grep for # MAGIC DOC:` headers)
+2. A reviewer note explaining that magic doc changes in unstaged diffs are auto-generated and expected
 
-Alternatively, you can create a memory file with a specific description (e.g., "Architectural docs for auth, billing, and deployment are in docs/magic/") so the memory selection agent loads the pointer when those topics come up in conversation. This is lighter than a CLAUDE.md entry since it only appears when relevant.
+This uses CLAUDE.md for what it's good at — a short, always-present prior that sets an assumption ("docs exist, read them first") without trying to contain the documentation itself. CLAUDE.md holds the pointer; the Magic Docs hold the architectural knowledge. Magic Docs self-correct through the development loop; CLAUDE.md content doesn't (see [Chapter 2: the verification gap](02-context-engineering.md#whats-missing-verification)).
 
 ### Verifying it works
 
-How do you know your Magic Docs are actually informing Claude's context? A few ways to check:
-
 - **Ask Claude directly**: "What do you know about the auth system?" If it cites information from your Magic Doc, the pipeline is working. If it says "I'd need to explore the codebase," the doc isn't being loaded.
-- **Check after a hook-triggered update**: After a session where you made auth changes, open `docs/magic/auth.md` and see if the content changed. If not, the hook may not be firing or the headless session may be failing silently.
-- **Watch for stale information**: If Claude confidently states something that's no longer true, check whether a Magic Doc is the source of the outdated claim. This is the most common failure mode — a doc that stopped getting updated.
-- **Review git diffs**: Since Magic Docs are files on disk, `git diff docs/magic/` shows exactly what changed after each update cycle.
+- **Check `git diff docs/magic/`** after working sessions to see insight-triggered updates.
+- **Check after a session with code changes**: If you renamed files or changed architecture, the Stop hook pruning pass should fix stale references in the docs. If it didn't, the hook may not be firing.
+- **Watch for stale information**: If Claude confidently states something that's no longer true, check whether a Magic Doc is the source. This is the most common failure mode.
 
 ### Maintenance
 
 - **Review periodically**: Magic Docs self-prune on updates, but they can't remove docs for subsystems that no longer exist. Delete docs for removed features manually.
-- **Keep them terse**: If a doc grows beyond ~500 words, it's probably covering too much. Split it into separate docs, one per concern — the update agent can only edit one doc per run, so smaller docs get more focused updates.
-- **One doc per concern**: Don't create a monolithic "architecture.md" that covers everything. Scoped docs are easier to update and more useful to load selectively. Good boundaries: one doc per service, per major feature area, or per cross-cutting concern.
+- **Keep them terse**: If a doc grows beyond ~500 words, it's probably covering too much. Split it.
+- **One doc per concern**: Don't create a monolithic "architecture.md." Scoped docs are easier to update and more useful to load selectively.
+- **Staleness checks**: Ask the agent "check the magic docs for stale content" periodically. Testing showed agents naturally detect and fix staleness (dead file paths, wrong claims, deleted functions) without needing a dedicated skill.
 - **Trust the philosophy**: The instinct to document everything in detail is strong. Resist it. The code is the detail. Magic Docs are the map.
