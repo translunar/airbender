@@ -1,0 +1,21 @@
+{
+  "name": "airbender",
+  "owner": {
+    "name": "Juno Woods",
+    "email": "juno@translunar.space"
+  },
+  "plugins": [
+    {
+      "name": "airbender",
+      "description": "MagicDocs system — skills for bootstrapping, creating, and maintaining terse architectural documentation",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "Juno Woods",
+        "email": "juno@translunar.space"
+      },
+      "category": "development",
+      "homepage": "https://github.com/translunar/airbender"
+    }
+  ]
+}
