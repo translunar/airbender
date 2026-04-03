@@ -153,138 +153,38 @@ Create one doc per major subsystem or concern, not one giant doc. Good boundarie
 
 A doc that grows beyond ~500 words is probably covering too much. Split it.
 
-## Step 3: Build an update skill
+## Step 3: Set up the automated system
 
-Now wrap the update logic in a skill so you can invoke it with `/update-docs` after a significant session.
+Once you understand the philosophy and have practiced writing docs manually, install the [airbender](https://github.com/translunar/airbender) plugin and run `/setup-magicdocs` in your repo. This bootstraps the full system:
 
-Create the file `.claude/skills/update-docs/SKILL.md`:
+1. Explores your repo structure
+2. Proposes 2-3 segmentation strategies — you pick how to slice the docs
+3. Creates `docs/magic/` with skeleton docs following the philosophy above
+4. Adds a CLAUDE.md pointer so future sessions know the docs exist
+5. Configures a Stop hook for automatic staleness pruning
 
-```markdown
----
-name: update-docs
-description: Update Magic Doc files with new learnings from the current session
-when_to_use: When the user asks to update docs, update magic docs, or after completing significant implementation work
-allowed-tools: Read, Edit, Glob, Grep
----
+After setup, use `/create-magicdoc <title>` to add individual docs for new subsystems as they emerge.
 
-Review the current conversation for new learnings, insights, or information
-that would be valuable to preserve in the project's Magic Doc files.
+### How updates happen
 
-## Steps
+Updates flow through three channels, from most to least context:
 
-1. Find all existing Magic Doc files:
-   - Glob for `docs/magic/*.md` (or the project's magic docs location)
-   - Read each file to understand current contents
+**Channel 1: Insight dispatch (primary).** During normal work, the main agent encounters something non-obvious about the codebase. The `/classify-info` skill classifies it as MagicDocs (architectural description, not a behavioral prescription). The main agent formulates a terse insight and specifies the target doc:
 
-2. Analyze the conversation and recent git diff for new information:
-   - What architectural decisions were made or discussed?
-   - What non-obvious patterns were discovered?
-   - What gotchas or issues were encountered?
-   - What entry points or key files were identified?
-   - What does `git diff HEAD~1` reveal about recent changes?
-
-3. For each relevant Magic Doc, update it following these rules:
-   - Preserve the header exactly: `# MAGIC DOC: <title>`
-   - If there's an italicized line after the header, preserve it exactly
-   - Update information IN-PLACE — do NOT append historical notes
-   - Remove or replace outdated information
-   - Clean up or DELETE sections that are no longer relevant
-   - BE TERSE. High signal only. No filler words.
-
-4. If the conversation revealed a new subsystem or area that doesn't
-   have a Magic Doc yet, note this to the user but don't create it
-   automatically — use `/create-doc` for that.
-
-5. Show the user what changed (summarize the edits).
-
-## What TO update
-
-- High-level architecture and system design
-- Non-obvious patterns, conventions, or gotchas
-- Key entry points and where to start reading code
-- Important design decisions and their rationale
-- Critical dependencies or integration points
-
-## What NOT to update
-
-- Anything obvious from reading the code
-- Exhaustive lists of files, functions, or parameters
-- Step-by-step implementation details
-- Information already in CLAUDE.md
+```
+An agent modifying the auth middleware would assume sessions are
+stateless JWTs. Actually, sessions are Redis-backed with server-side
+revocation — this was chosen for compliance. The relevant code is
+in src/middleware/auth.ts and src/services/session.ts.
 ```
 
-The key design choices in this skill:
+A fresh Sonnet subagent receives this insight with `Read, Edit` tools only, reads the target doc from disk, integrates the insight following the MagicDocs philosophy, and exits. Edits are left unstaged for the user to commit. The subagent runs in the background — fire-and-forget, no blocking.
 
-- **`when_to_use` is specific** — it mentions "update docs", "magic docs", and "after completing significant work." This gives the selection system concrete phrases to match on.
-- **`allowed-tools` includes Read and Glob** — unlike the real MagicDocs agent which only has Edit, our skill needs to discover and read the existing docs. The real agent gets doc contents passed as a template variable; we have to find them ourselves.
-- **The philosophy is embedded in the skill** — the rules about terseness, in-place updates, and what to document are right there in the prompt, so they're fresh in context when the skill fires.
+Why `Read, Edit` only? MVP testing showed that giving the subagent `Glob` access caused scope violations (Haiku edited unrelated files it discovered). Dropping Glob and specifying the exact target doc path eliminated this. The main agent — which has full conversation context — picks the target doc, not the subagent.
 
-## Step 4: Build a creation skill
+**Channel 2: Manual invocation.** The user says "remember this" or runs `/create-magicdoc`. Highest signal, lowest automation.
 
-The update skill maintains existing docs. You also need a way to bootstrap new ones. Create `.claude/skills/create-doc/SKILL.md`:
-
-```markdown
----
-name: create-doc
-description: Create a new Magic Doc for a subsystem or area of the codebase
-when_to_use: When the user asks to create a doc, create a magic doc, or document a new subsystem
-allowed-tools: Read, Write, Glob, Grep, Bash
----
-
-Create a new Magic Doc file for a subsystem or area of the codebase.
-
-## Arguments
-
-$title — The title for the Magic Doc (e.g., "Authentication", "Build Pipeline"). Invoke as `/create-doc Authentication` — the argument after the command becomes `$title`.
-
-## Steps
-
-1. Check if a Magic Doc already exists for this topic:
-   - Glob for `docs/magic/*.md`
-   - If a doc with a similar title exists, tell the user and suggest
-     using `/update-docs` instead
-
-2. Analyze the relevant area of the codebase:
-   - Search for key files, entry points, and patterns
-   - Read the most important files (not exhaustively — focus on
-     entry points and architecture)
-   - Identify non-obvious patterns and gotchas
-
-3. Write the Magic Doc to `docs/magic/<slug>.md` using this structure:
-
-   ```
-   # MAGIC DOC: $title
-
-   *<one-line description>*
-
-   ## Overview
-   ## Architecture (if applicable)
-   ## Key Entry Points
-   ## Non-Obvious Patterns
-   ## Dependencies (if applicable)
-   ```
-
-4. Follow the MagicDocs philosophy:
-   - BE TERSE. High signal only.
-   - Document WHY things exist, HOW components connect, WHERE to
-     start reading, WHAT patterns are used
-   - Do NOT document anything obvious from reading the code
-   - Do NOT create exhaustive lists of files or functions
-   - Keep the total doc under ~500 words
-
-5. Show the user the created doc and ask if anything should be
-   adjusted.
-```
-
-## Step 5: Automate with hooks
-
-Once you're comfortable with the manual workflow, you can automate it so Magic Docs update after every session without you remembering to invoke `/update-docs`.
-
-The approach: use a `Stop` hook event to trigger a headless `claude -p` call when a session ends.
-
-### Hook configuration
-
-Add this to your `.claude/settings.json` (or `.claude/settings.local.json` for personal use):
+**Channel 3: Stop hook pruning (safety net).** When a session ends, a Stop hook checks `git diff` for meaningful code changes. If found, it spawns a headless Sonnet session that reconciles magic docs against the diff — fixing stale file paths, removing references to deleted code, updating structural descriptions. This is **reconciliation, not synthesis** — the hook can fix "what" (file paths changed) but not "why" (design rationale discovered in conversation). It catches things the main agent forgot to document.
 
 ```json
 {
@@ -292,52 +192,26 @@ Add this to your `.claude/settings.json` (or `.claude/settings.local.json` for p
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "claude -p 'Review the git diff of the last session and update any relevant Magic Doc files in docs/magic/ following the MagicDocs philosophy. Be terse. Update in-place. Remove outdated info. Only update if there is substantial new information.' --allowedTools 'Read,Edit,Glob,Grep' --model sonnet 2>/dev/null &"
+        "command": "if git diff --stat HEAD 2>/dev/null | grep -q '.'; then claude -p 'Check the git diff against existing magic docs (grep for files with # MAGIC DOC: headers). If any doc references files, paths, or structures that changed in the diff, update those references in-place. Do NOT add new architectural insights — only fix inconsistencies between docs and current code state. Be terse. If nothing is inconsistent, make no edits.' --model sonnet --allowedTools 'Glob,Read,Edit,Grep' 2>/dev/null & fi"
       }]
     }]
   }
 }
 ```
 
-### Design choices explained
+The Stop hook gets `Glob` and `Grep` (unlike the insight subagent) because it needs to discover magic docs repo-wide, including co-located docs outside `docs/magic/`.
 
-- **`Stop` event**: Runs when the session ends, mirroring how the real MagicDocs agent runs post-conversation.
-- **`--model sonnet`**: Uses Sonnet, matching the real MagicDocs agent. Cheaper than Opus, fast enough for doc updates.
-- **`--allowedTools`**: Restricts the headless session to read and edit operations only. No Bash, no Write (can't create new files — only update existing ones).
-- **`&` at the end**: Runs in the background so it doesn't block session exit.
-- **`2>/dev/null`**: Suppresses stderr so background errors don't pollute your terminal.
-- **The prompt includes the philosophy inline**: "Be terse. Update in-place. Remove outdated info." Since the headless session has no access to our skill files, the key rules need to be in the prompt itself.
+### Why this design differs from Chapter 5's original approach
 
-*Note: The `--allowedTools` and `--model` flags shown here reflect the Claude Code CLI at time of writing. Flag names may vary across versions — check `claude --help` to confirm.*
+The earlier version of this chapter described a simpler system: a Stop hook runs after every session and uses `git diff` to update docs. That approach has fundamental limitations:
 
-### Trade-offs and gating
+- **No conversation context.** The Stop hook only sees diffs — it can't capture design rationale, gotchas, or non-obvious patterns discussed during the session.
+- **Batch, not incremental.** Running once at session end means insights accumulate and may be forgotten by the time the hook fires.
+- **All-or-nothing.** Every session triggers the hook, even trivial ones. Gating by diff size is a rough proxy.
 
-This setup runs after **every** session, which has costs:
-
-- **Token cost**: Each update triggers a Sonnet session that reads your Magic Docs and recent changes. For a project with 5 docs, this might be 10-20K tokens per session.
-- **Noise**: Not every conversation produces doc-worthy learnings. A session where you only asked "what does this function do?" doesn't need a doc update.
-- **Stale diffs**: The `git diff` approach only captures committed changes, not conversational insights that didn't result in code changes.
-
-To reduce noise, you could gate the hook:
-
-```json
-{
-  "hooks": {
-    "Stop": [{
-      "hooks": [{
-        "type": "command",
-        "command": "if [ $(git diff --stat HEAD~1 | wc -l) -gt 5 ]; then claude -p '...' --model sonnet 2>/dev/null & fi"
-      }]
-    }]
-  }
-}
-```
-
-This only triggers the update if the most recent commit changed more than 5 files — a rough proxy for "significant work happened."
+The incremental insight dispatch model (Channel 1) solves these: updates happen during the session while the main agent has full context, each update is focused on a single insight, and the Stop hook serves only as a safety net for structural drift — not as the primary update mechanism.
 
 [source: `system-prompt-hooks-configuration.md` for hook schema and events](https://github.com/Piebald-AI/claude-code-system-prompts/blob/main/system-prompts/system-prompt-hooks-configuration.md), [`config.rs` for hook configuration loading](https://github.com/instructkr/claw-code/blob/main/rust/crates/runtime/src/config.rs)
-
-[source: `system-prompt-insights-suggestions.md` for the pattern of post-session analysis](https://github.com/Piebald-AI/claude-code-system-prompts/blob/main/system-prompts/system-prompt-insights-suggestions.md)
 
 ## Putting it all together
 
