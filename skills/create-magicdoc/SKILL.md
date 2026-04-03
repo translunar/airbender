@@ -11,6 +11,10 @@ Create a single new Magic Doc for a subsystem or area of the codebase.
 
 The title follows the command: `/create-magicdoc Authentication`
 
+## Prerequisite Check
+
+Before proceeding, verify the magicdocs system is set up: check that `docs/magic/` exists and CLAUDE.md mentions Magic Docs. If not, tell the user to run `/setup-magicdocs` first and stop.
+
 ## Steps
 
 1. **Check for duplicates.** Glob `docs/magic/*.md` and grep for `^# MAGIC DOC:` repo-wide. If a doc with a similar title or covering the same subsystem exists, tell the user and stop.

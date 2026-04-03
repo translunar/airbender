@@ -10,7 +10,7 @@ Build a portable, installable set of skills that bootstraps a MagicDocs system i
 
 MagicDocs complement CLAUDE.md (behavioral constraints) by holding architectural knowledge that would otherwise go stale. CLAUDE.md says "how you want Claude to behave." MagicDocs say "how the codebase works."
 
-The deliverable is a **modular set of skills** — a bootstrap installer (`/setup-magicdocs`) plus a doc creation skill (`/create-magic-doc`). Skills are built serially using `/writing-skills` (not by subagents, which don't have access to the writing-skills skill). Updates happen automatically via the existing `/classify-info` classification flow.
+The deliverable is a **modular set of skills** — a bootstrap installer (`/setup-magicdocs`) plus a doc creation skill (`/create-magicdoc`). Skills are built serially using `/writing-skills` (not by subagents, which don't have access to the writing-skills skill). Updates happen automatically via the existing `/classify-info` classification flow.
 
 ## Reference: How Anthropic's Internal MagicDocs Works
 
@@ -71,7 +71,7 @@ Main agent does normal work
 | Channel | Trigger | Context Available | What It Catches |
 |---------|---------|-------------------|-----------------|
 | **(a) Main agent judgment** | `/classify-info` → MagicDocs | Full conversation | Non-obvious patterns, design rationale, gotchas |
-| **(b) User invocation** | "remember this" or `/create-magic-doc` | Full conversation | Anything the user explicitly wants documented |
+| **(b) User invocation** | "remember this" or `/create-magicdoc` | Full conversation | Anything the user explicitly wants documented |
 | **(c) Stop hook pruning** | Session exit + git diff | Diffs only | Stale file paths, deleted code references, structural changes |
 
 **Reliability caveat**: Channel (a) is the primary automatic mechanism but depends on the main agent noticing something is doc-worthy — a behavioral instruction, which are known to be unreliable (see Chapter 4: behavioral rules in CLAUDE.md often don't get followed). The `/classify-info` skill's 100% classification accuracy doesn't help if the main agent never invokes it. Channel (c) partially compensates by sweeping for structural inconsistencies at session end — it can fix "what" (file paths, structure) but not "why" (rationale, gotchas).
@@ -119,7 +119,7 @@ Sonnet (recommended). MVP testing showed Sonnet scores 5/5 and Haiku 4.5/5 after
 
 ### Tools
 
-`Read, Edit` only. No Glob (MVP proved dropping Glob prevents scope violations — Haiku edited unrelated files when it could discover them). No Write (can't create new docs — that's `/create-magic-doc`). No Bash (prevents unconstrained shell access).
+`Read, Edit` only. No Glob (MVP proved dropping Glob prevents scope violations — Haiku edited unrelated files when it could discover them). No Write (can't create new docs — that's `/create-magicdoc`). No Bash (prevents unconstrained shell access).
 
 Why Read when Anthropic uses Edit only? Anthropic pre-loads doc contents via template variables. We can't use template variables, so the subagent needs to read the target doc itself. The dispatch message specifies the exact file path — the subagent doesn't need to discover anything. It always reads the most recent version on disk.
 
@@ -263,14 +263,16 @@ Built using `/writing-skills`. Run once per repo.
 2. Proposes 2-3 segmentation strategies tailored to the project
 3. User picks a segmentation approach
 4. Creates `docs/magic/` directory + initial skeleton docs
-5. Installs `/create-magic-doc` skill (using `/writing-skills`)
-6. Appends pointer and reviewer note to CLAUDE.md (with user confirmation)
-7. Adds PreToolUse edit guard hook and Stop pruning hook to `.claude/settings.json` (with user confirmation)
+5. Appends pointer and reviewer note to CLAUDE.md (with user confirmation)
+6. Adds PreToolUse edit guard hook and Stop pruning hook to `.claude/settings.json` (with user confirmation)
+
+**Prerequisite:** The airbender plugin must be installed as a Claude Code skills plugin. This provides `/create-magicdoc`, `/classify-info`, and `/prune-magicdocs`.
 
 **What it does NOT do:**
+- Install companion skills (provided by the airbender plugin)
 - Install an `/update-docs` skill (updates are automatic via `/classify-info` dispatch)
 
-### Skill 2: `/create-magic-doc <title>`
+### Skill 2: `/create-magicdoc <title>`
 
 Built using `/writing-skills`. For adding individual magic docs after initial setup.
 
@@ -294,7 +296,7 @@ Built using `/writing-skills`. For adding individual magic docs after initial se
 ## Dependencies (if applicable)
 ```
 
-### Skill 3: `/prune-magic-docs` (staleness check)
+### Skill 3: `/prune-magicdocs` (staleness check)
 
 Built using `/writing-skills`. Manual invocation to detect and fix stale content across all magic docs.
 
@@ -315,7 +317,7 @@ Built using `/writing-skills`. Manual invocation to detect and fix stale content
 - Most checks are mechanical (file existence, grep, git log) — no LLM needed for detection
 - Only the *fix* goes through the subagent loop — detection is scripted
 - Keeps the architecture consistent: everything flows through insight → subagent → edit
-- Start manual (`/prune-magic-docs`), later can be incorporated as a periodic agent or Stop hook enhancement
+- Start manual (`/prune-magicdocs`), later can be incorporated as a periodic agent or Stop hook enhancement
 
 ### Integration: `/classify-info` → MagicDocs Dispatch
 
@@ -340,11 +342,11 @@ If concurrent sessions editing the same magic docs becomes a real problem, Agent
 
 ## Uninstall Path
 
-- Remove `.claude/skills/create-magic-doc/` and `.claude/skills/prune-magic-docs/`
 - Revert CLAUDE.md additions (pointer + reviewer note)
 - Remove PreToolUse edit guard hook and Stop hook from `.claude/settings.json`
 - `docs/magic/` content preserved by default — it's useful documentation even without the automation
 - User can delete `docs/magic/` manually if desired
+- Skills are provided by the airbender plugin — uninstalling the plugin removes them from all repos
 
 ## Growth Phases
 
@@ -352,14 +354,14 @@ If concurrent sessions editing the same magic docs becomes a real problem, Agent
 |-------|------|-----------|
 | **MVP** | Manual magic doc + manual subagent dispatch → validate edit quality | Nothing |
 | **Phase 1** | `/setup-magicdocs` skill (using `/writing-skills`) | MVP passes |
-| **Phase 2** | `/create-magic-doc` skill (using `/writing-skills`) | Phase 1 |
+| **Phase 2** | `/create-magicdoc` skill (using `/writing-skills`) | Phase 1 |
 | **Phase 3** | `/classify-info` → MagicDocs dispatch integration | Phase 2 |
 | **Phase 4** | Stop hook pruning pass | Phase 1 |
 | **Phase 5** | PreToolUse edit guard | Phase 1 |
-| **Phase 6** | `/prune-magic-docs` skill (using `/writing-skills`) | Phase 2 |
+| **Phase 6** | `/prune-magicdocs` skill (using `/writing-skills`) | Phase 2 |
 | **Phase 7** | Chapter 5 rewrite | Phase 3-6 stable |
 | **Deferred** | Proactive idle scanning (git diff during lulls) | Core system proven |
-| **Deferred** | Automate `/prune-magic-docs` as periodic agent | Phase 6 proven manually |
+| **Deferred** | Automate `/prune-magicdocs` as periodic agent | Phase 6 proven manually |
 
 Skills in phases 1-2 are built serially using `/writing-skills`, not by subagents.
 

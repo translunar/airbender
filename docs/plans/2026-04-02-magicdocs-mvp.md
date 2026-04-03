@@ -487,6 +487,6 @@ git commit -m "docs: MVP evaluation complete — [PASS/FAIL]"
 
 - [ ] **Step 4: If MVP passes, report back**
 
-The MVP validates the core loop. Next step: invoke `/writing-skills` to build `/setup-magicdocs` and `/create-magic-doc` per `docs/specs/2026-04-02-magicdocs-full.md`.
+The MVP validates the core loop. Next step: invoke `/writing-skills` to build `/setup-magicdocs` and `/create-magicdoc` per `docs/specs/2026-04-02-magicdocs-full.md`.
 
 If the MVP fails, document what went wrong and what the context model needs (e.g., conversation summaries instead of terse insights, different prompt structure, etc.).

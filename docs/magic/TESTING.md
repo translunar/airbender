@@ -200,4 +200,4 @@ The core loop works. A Sonnet subagent with the adapted MagicDocs prompt and `Re
 - The MagicDocs philosophy is essential — without it, both models accept non-architectural content and produce verbose edits
 - "Already captured" detection is imperfect (#5) but acceptable — worst case is a mildly redundant bullet, not a harmful edit
 
-**Next step:** Invoke `/writing-skills` to build `/setup-magicdocs` and `/create-magic-doc` per `docs/specs/2026-04-02-magicdocs-full.md`.
+**Next step:** Invoke `/writing-skills` to build `/setup-magicdocs` and `/create-magicdoc` per `docs/specs/2026-04-02-magicdocs-full.md`.

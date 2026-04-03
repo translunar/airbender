@@ -68,7 +68,7 @@ Anthropic has an internal MagicDocs feature (not available to public Claude Code
 
 - [x] **#5 What tools does the subagent have?**
   - **Anthropic**: Edit only — doc contents are pre-loaded via template variables.
-  - **Us**: `Glob, Read, Edit` only. No Write (can't create new docs — that's `/create-magic-doc`). No Bash.
+  - **Us**: `Glob, Read, Edit` only. No Write (can't create new docs — that's `/create-magicdoc`). No Bash.
   - **Rationale**: The subagent needs Glob to find docs (two-pass discovery) and Read to get current contents, since we can't use template variables. Minimal toolset keeps the agent scoped. No Bash prevents unconstrained shell access.
 
 - [x] **#11 How are docs discoverable to future sessions?**
@@ -87,7 +87,7 @@ Anthropic has an internal MagicDocs feature (not available to public Claude Code
 
 - [x] **#9 Can the agent create new docs?**
   - **Anthropic**: No — Edit only.
-  - **Us**: No. Separate `/create-magic-doc` skill handles creation. The update subagent reports "no existing doc covers this" and suggests the user create one.
+  - **Us**: No. Separate `/create-magicdoc` skill handles creation. The update subagent reports "no existing doc covers this" and suggests the user create one.
 
 - [x] **#7 How are docs discovered on disk?**
   - **Anthropic**: Regex `^#\s*MAGIC\s+DOC:\s*(.+)$/im` — scans anywhere in repo.
