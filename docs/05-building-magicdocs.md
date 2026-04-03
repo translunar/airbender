@@ -1,23 +1,23 @@
 # Building MagicDocs
 
-MagicDocs is an internal feature of Claude Code — a Sonnet subagent that runs after conversations, reads existing documentation files, and updates them with new learnings. You can't access the internal MagicDocs pipeline directly, but you can replicate its behavior using primitives that are available to all users: skills and hooks.
+MagicDocs is an internal feature of Claude Code — a Sonnet subagent that automatically updates architectural documentation files. It is fully gated to internal builds and not available to public Claude Code users. But its design philosophy is well-documented in the extracted agent prompt, and we can replicate the behavior using skills, subagents, and hooks.
 
-This chapter walks through the progression: understand the philosophy, create docs manually, build skills to assist, then automate the whole thing.
+This chapter walks through the progression: understand the philosophy, create docs manually, then set up automated updates using the airbender plugin.
 
-## What we're building
+## What we're replicating
 
 The real MagicDocs agent has a simple architecture:
 
 - **Model**: Sonnet (cost-optimized, not the full Opus model)
-- **Tools**: Only the Edit tool — it can modify existing files but can't read new ones, run commands, or explore the codebase
-- **Input**: The current doc contents (passed as template variables: `{{docPath}}`, `{{docContents}}`, `{{docTitle}}`, `{{customInstructions}}`) and the conversation transcript above it
+- **Tools**: Only the Edit tool — doc contents are pre-loaded via template variables (`{{docPath}}`, `{{docContents}}`, `{{docTitle}}`, `{{customInstructions}}`)
+- **Input**: The conversation transcript and current doc contents
 - **Output**: Edit tool calls to update the doc, or a brief explanation of why no update is needed
-- **Trigger**: Runs post-conversation as a background agent
-- **Scope**: Each doc gets its own agent run. The agent only sees and edits a single doc — an orchestration layer decides which docs need updating based on the conversation
+- **Trigger**: `postSamplingHook` — fires after each model response that involved tool calls, **not** post-conversation. This means updates happen incrementally during the session, not as a batch at the end.
+- **Scope**: Each doc gets its own fresh agent run. An orchestration layer (with full conversation context) decides which docs are relevant; the agent only edits the single doc it's given
 
 A key design point: docs are **not** mapped to code files via path matching or a `when_to_use` field. They're navigational overlays organized by concern ("Authentication", "Build Pipeline"). The orchestration layer judges which docs are relevant to the conversation; the agent itself just updates the one it's given. The agent cannot create new docs or split existing ones — it only edits.
 
-We'll replicate this using a skill (manual trigger) and then a hook (automatic trigger via headless `claude -p`).
+Our replication uses the [airbender](https://github.com/translunar/airbender) plugin, which provides: `/setup-magicdocs` (bootstrap a repo), `/create-magicdoc` (add individual docs), and `/classify-info` (route information to the right persistence mechanism, including MagicDocs). The rest of this chapter explains the underlying philosophy and manual process — understand these before using the plugin.
 
 [source: `agent-prompt-update-magic-docs.md` — agent metadata showing model, tools, and trigger](https://github.com/Piebald-AI/claude-code-system-prompts/blob/main/system-prompts/agent-prompt-update-magic-docs.md)
 
