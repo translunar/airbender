@@ -240,7 +240,7 @@ Tools include Grep (in addition to Glob, Read, Edit) because the pruning pass ne
 }
 ```
 
-Note: This is a rough sketch. The exact implementation depends on how `$ARGUMENTS` is structured for Edit tool calls. Needs refinement during implementation.
+**STATUS: DEFERRED.** This sketch is wrong — hooks receive JSON on stdin, not via `$ARGUMENTS`. The output format is also different (`permissionDecision: "deny"`, not `continue: false`). Scope violations are already solved by the Read+Edit-only toolset (MVP REFACTOR finding). Revisit if the toolset constraint proves insufficient.
 
 ## Discoverability
 
@@ -340,7 +340,7 @@ If concurrent sessions editing the same magic docs becomes a real problem, Agent
 | **Phase 2** | `/create-magicdoc` skill (TDD 7/7) | **DONE** |
 | **Phase 3** | `/classify-info` → MagicDocs dispatch | **DONE** — no deliverable needed, flow works naturally via existing skill + CLAUDE.md pointer |
 | **Phase 4** | Stop hook pruning pass | **DONE** — configured by `/setup-magicdocs` |
-| **Phase 5** | PreToolUse edit guard | **DONE** — configured by `/setup-magicdocs` (rough sketch, needs live testing) |
+| **Phase 5** | PreToolUse edit guard | **DEFERRED** — original sketch used wrong hook API (`$ARGUMENTS` doesn't exist, hooks receive JSON on stdin). Scope violations already solved by Read+Edit toolset. Revisit if needed. |
 | **Phase 6** | Chapter 5 rewrite | **TODO** |
 | **Pruning** | Staleness detection | **DROPPED** — RED baseline showed agent handles this naturally (5/4) |
 | **Deferred** | Proactive idle scanning (git diff during lulls) | Not started |
