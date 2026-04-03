@@ -1,6 +1,6 @@
 # Airbender
 
-A Claude Code reference manual for context engineering and "Magic Docs" plugin.
+A Claude Code reference manual for context engineering and MagicDocs plugin.
 
 Claude Code has six different mechanisms for shaping agent behavior: CLAUDE.md, skills, memory, hooks, MagicDocs, and the insights system. Most people put everything in CLAUDE.md. This is a mistake.
 
@@ -145,6 +145,14 @@ Architectural claims in the manual cite two publicly available repositories:
 - [instructkr/claw-code](https://github.com/instructkr/claw-code) — Python/Rust reimplementation of Claude Code's architecture
 
 The authors of this project had no role in the exposure of Claude Code's source material.
+
+Thanks also to [@obra](https://github.com/obra) for [superpowers](https://github.com/obra/superpowers), which I relied on heavily for this work.
+
+## Status
+
+**Experimental.** This project replicates internal Anthropic infrastructure using public primitives — it works, but it's not battle-tested across many codebases. Use at your own risk.
+
+Issues and PRs are welcome. If you try this on your project and something breaks, doesn't work as expected, or could be better — please [open an issue](https://github.com/translunar/airbender/issues).
 
 ## License
 
