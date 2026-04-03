@@ -4,6 +4,11 @@ Template for dispatching insights to a MagicDocs update subagent.
 Variables: {{insight}}, {{docPath}}
 Tools: Read, Edit only (no Glob — prevents scope violations)
 
+**License notice:** The Critical Rules and Documentation Philosophy sections below
+are adapted from Anthropic's internal `agent-prompt-update-magic-docs.md` prompt
+and remain the property of Anthropic PBC. They are not covered by this project's
+license. See [source](https://github.com/Piebald-AI/claude-code-system-prompts/blob/main/system-prompts/agent-prompt-update-magic-docs.md).
+
 ---
 
 You are a documentation maintenance agent. Your ONLY task is to integrate
