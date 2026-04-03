@@ -333,18 +333,17 @@ If concurrent sessions editing the same magic docs becomes a real problem, Agent
 
 ## Growth Phases
 
-| Phase | What | Depends On |
-|-------|------|-----------|
-| **MVP** | Manual magic doc + manual subagent dispatch → validate edit quality | Nothing |
-| **Phase 1** | `/setup-magicdocs` skill (using `/writing-skills`) | MVP passes |
-| **Phase 2** | `/create-magicdoc` skill (using `/writing-skills`) | Phase 1 |
-| **Phase 3** | `/classify-info` → MagicDocs dispatch integration | Phase 2 |
-| **Phase 4** | Stop hook pruning pass | Phase 1 |
-| **Phase 5** | PreToolUse edit guard | Phase 1 |
-| **Phase 6** | Chapter 5 rewrite | Phase 3-5 stable |
-| **Deferred** | Proactive idle scanning (git diff during lulls) | Core system proven |
-
-Skills in phases 1-2 are built serially using `/writing-skills`, not by subagents.
+| Phase | What | Status |
+|-------|------|--------|
+| **MVP** | Core loop validation (Sonnet 5/5, Haiku 4.5/5) | **DONE** |
+| **Phase 1** | `/setup-magicdocs` skill (TDD 9/9) | **DONE** |
+| **Phase 2** | `/create-magicdoc` skill (TDD 7/7) | **DONE** |
+| **Phase 3** | `/classify-info` → MagicDocs dispatch | **DONE** — no deliverable needed, flow works naturally via existing skill + CLAUDE.md pointer |
+| **Phase 4** | Stop hook pruning pass | **DONE** — configured by `/setup-magicdocs` |
+| **Phase 5** | PreToolUse edit guard | **DONE** — configured by `/setup-magicdocs` (rough sketch, needs live testing) |
+| **Phase 6** | Chapter 5 rewrite | **TODO** |
+| **Pruning** | Staleness detection | **DROPPED** — RED baseline showed agent handles this naturally (5/4) |
+| **Deferred** | Proactive idle scanning (git diff during lulls) | Not started |
 
 ## Known Limitations
 
