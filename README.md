@@ -1,6 +1,6 @@
 # Airbender
 
-A Claude Code plugin and reference manual for context engineering.
+A Claude Code reference manual for context engineering and "Magic Docs" plugin.
 
 Claude Code has six different mechanisms for shaping agent behavior: CLAUDE.md, skills, memory, hooks, MagicDocs, and the insights system. Most people put everything in CLAUDE.md. This is a mistake.
 
@@ -78,7 +78,7 @@ claude plugin update airbender
 /setup-magicdocs
 ```
 
-This explores your repo, proposes segmentation strategies (you pick one), creates skeleton docs in `docs/magic/`, adds a CLAUDE.md pointer, and configures a Stop hook for automatic staleness pruning.
+This explores your repo and asks how you want to slice the docs — one per subsystem ("Authentication", "Billing"), one per top-level directory, one per entry point, or a hybrid. It then creates skeleton docs in `docs/magic/`, adds a CLAUDE.md pointer, and configures a Stop hook for automatic staleness pruning.
 
 ### Add a doc for a new subsystem
 
