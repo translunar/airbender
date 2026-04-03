@@ -109,7 +109,7 @@ Merge with existing hooks if any are already configured.
 
 ## Prerequisite
 
-The airbender plugin must be installed as a Claude Code skills plugin. This provides `/create-magic-doc`, `/classify-info`, and `/prune-magic-docs` — the companion skills that create individual docs, route insights to the update subagent, and detect staleness.
+The airbender plugin must be installed as a Claude Code skills plugin. This provides `/create-magicdoc` and `/classify-info` — the companion skills that create individual docs and route insights to the update subagent.
 
 ## What This Does NOT Do
 

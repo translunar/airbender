@@ -266,7 +266,7 @@ Built using `/writing-skills`. Run once per repo.
 5. Appends pointer and reviewer note to CLAUDE.md (with user confirmation)
 6. Adds PreToolUse edit guard hook and Stop pruning hook to `.claude/settings.json` (with user confirmation)
 
-**Prerequisite:** The airbender plugin must be installed as a Claude Code skills plugin. This provides `/create-magicdoc`, `/classify-info`, and `/prune-magicdocs`.
+**Prerequisite:** The airbender plugin must be installed as a Claude Code skills plugin. This provides `/create-magicdoc` and `/classify-info`.
 
 **What it does NOT do:**
 - Install companion skills (provided by the airbender plugin)
@@ -296,28 +296,11 @@ Built using `/writing-skills`. For adding individual magic docs after initial se
 ## Dependencies (if applicable)
 ```
 
-### Skill 3: `/prune-magicdocs` (staleness check)
+### Pruning: No Dedicated Skill Needed
 
-Built using `/writing-skills`. Manual invocation to detect and fix stale content across all magic docs.
+TDD testing (RED baseline against ~/Projects/social with 4 intentionally injected corruptions) showed the agent naturally detects and fixes all staleness issues without a dedicated skill — scoring 5/4 (found all 4 injected problems plus a genuine issue we hadn't noticed). The agent mechanically checked file existence, grepped for function definitions, and verified architectural claims against actual code, using 50 tool calls for a thorough sweep.
 
-**What it does:**
-1. Discovers all magic docs (two-pass: `docs/magic/*.md` + grep for `# MAGIC DOC:` headers)
-2. For each doc, runs mechanical staleness checks:
-   - **Dead file references** — doc mentions files that don't exist on disk
-   - **Deleted exports/functions** — doc mentions functions or methods that grep can't find
-   - **Structural drift** — doc describes directory contents that don't match reality
-   - **Dependency changes** — doc mentions libraries not in package manifest
-   - **Git divergence** — files referenced by the doc have been heavily modified since the doc was last updated (git blame age vs git log on referenced files)
-   - **Contradiction with CLAUDE.md** — doc claims something CLAUDE.md contradicts
-3. Produces a staleness report: which docs have issues, what's stale, severity
-4. For each stale item, dispatches a focused insight to the magicdocs subagent (same Read+Edit loop as automatic updates) OR makes the fix directly for simple cases (dead links, renamed files)
-5. Reports what was fixed and what needs human judgment
-
-**Design notes:**
-- Most checks are mechanical (file existence, grep, git log) — no LLM needed for detection
-- Only the *fix* goes through the subagent loop — detection is scripted
-- Keeps the architecture consistent: everything flows through insight → subagent → edit
-- Start manual (`/prune-magicdocs`), later can be incorporated as a periodic agent or Stop hook enhancement
+**To prune magic docs:** Just ask the agent "check the magic docs for stale content." No `/prune-magicdocs` skill is needed. Revisit if we find cases where the agent misses things or over-fixes in ways that cause problems.
 
 ### Integration: `/classify-info` → MagicDocs Dispatch
 
@@ -358,10 +341,8 @@ If concurrent sessions editing the same magic docs becomes a real problem, Agent
 | **Phase 3** | `/classify-info` → MagicDocs dispatch integration | Phase 2 |
 | **Phase 4** | Stop hook pruning pass | Phase 1 |
 | **Phase 5** | PreToolUse edit guard | Phase 1 |
-| **Phase 6** | `/prune-magicdocs` skill (using `/writing-skills`) | Phase 2 |
-| **Phase 7** | Chapter 5 rewrite | Phase 3-6 stable |
+| **Phase 6** | Chapter 5 rewrite | Phase 3-5 stable |
 | **Deferred** | Proactive idle scanning (git diff during lulls) | Core system proven |
-| **Deferred** | Automate `/prune-magicdocs` as periodic agent | Phase 6 proven manually |
 
 Skills in phases 1-2 are built serially using `/writing-skills`, not by subagents.
 
