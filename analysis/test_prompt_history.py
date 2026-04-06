@@ -25,7 +25,7 @@ class TestPromptModificationCounts(unittest.TestCase):
         for filename, count in result.items():
             self.assertIsInstance(filename, str)
             self.assertIsInstance(count, int)
-            self.assertGreater(count, 0)
+            self.assertGreaterEqual(count, 0)
 
     def test_includes_known_prompts(self) -> None:
         result = get_prompt_modification_counts(PROMPTS_REPO)
@@ -41,6 +41,22 @@ class TestPromptModificationCounts(unittest.TestCase):
         counts = sorted(result.values())
         # There should be variation — not all the same count
         self.assertGreater(counts[-1], counts[0])
+
+    def test_excludes_batch_commits(self) -> None:
+        """Commits that touch many files at once (repo setup, batch metadata)
+        should be excluded — they don't represent Anthropic iterating on a prompt."""
+        result = get_prompt_modification_counts(PROMPTS_REPO)
+        # MagicDocs was never modified by Anthropic — only touched by
+        # repo setup commits and a batch metadata addition.
+        # With batch filtering, it should have 0 content modifications.
+        magicdocs = result.get("agent-prompt-update-magic-docs.md", 0)
+        self.assertEqual(magicdocs, 0)
+
+    def test_counts_dont_go_below_zero(self) -> None:
+        """Filtering should never produce negative counts."""
+        result = get_prompt_modification_counts(PROMPTS_REPO)
+        for filename, count in result.items():
+            self.assertGreaterEqual(count, 0, f"{filename} has negative count")
 
 
 class TestPromptLifespan(unittest.TestCase):

@@ -43,11 +43,16 @@ def _run_git(repo: Path, *args: str) -> str:
 
 
 def _get_current_files(repo: Path) -> set[str]:
-    """Get the set of prompt filenames currently in the repo."""
-    prompts_path = repo / PROMPTS_DIR
-    if not prompts_path.exists():
+    """Get the set of prompt filenames tracked at HEAD."""
+    try:
+        ls_tree = _run_git(repo, "ls-tree", "--name-only", "HEAD", PROMPTS_DIR + "/")
+        return {
+            line.strip().split("/")[-1]
+            for line in ls_tree.strip().split("\n")
+            if line.strip().endswith(".md")
+        }
+    except subprocess.CalledProcessError:
         return set()
-    return {f.name for f in prompts_path.iterdir() if f.suffix == ".md"}
 
 
 def _categorize(filename: str) -> str:
@@ -66,19 +71,80 @@ def _categorize(filename: str) -> str:
         return "other"
 
 
-def get_prompt_modification_counts(repo: Path) -> dict[str, int]:
-    """Count commits that touched each prompt file."""
+# Version-tagged commits (e.g., "v2.1.91 (+2,043 tokens)") represent
+# actual Claude Code releases. All other commits are repo maintenance
+# (setup, metadata additions, fixes) and should be excluded from
+# per-prompt modification counts.
+_VERSION_PREFIX: str = "v"
+
+
+def _get_version_commits(repo: Path) -> set[str]:
+    """Identify commits that represent actual Claude Code releases."""
     log = _run_git(
-        repo, "log", "--all", "--name-only", "--pretty=format:", "--diff-filter=AMRD",
-        "--", f"{PROMPTS_DIR}/*.md",
+        repo, "log", "--all", "--pretty=format:%H|%s",
     )
-    counts: dict[str, int] = {}
+    version_commits: set[str] = set()
     for line in log.strip().split("\n"):
         line = line.strip()
-        if not line or not line.endswith(".md"):
+        if not line:
             continue
-        filename = line.split("/")[-1]
-        counts[filename] = counts.get(filename, 0) + 1
+        parts = line.split("|", 1)
+        sha = parts[0]
+        message = parts[1] if len(parts) > 1 else ""
+        # Version commits start with "v" followed by a digit (e.g., "v2.1.91")
+        if message and message[0] == _VERSION_PREFIX and len(message) > 1 and message[1].isdigit():
+            version_commits.add(sha)
+    return version_commits
+
+
+def get_prompt_modification_counts(repo: Path) -> dict[str, int]:
+    """Count version-tagged commits that touched each prompt file.
+
+    Only counts commits representing actual Claude Code releases (message
+    starts with 'v' + digit). Excludes repo maintenance commits (initial
+    setup, metadata additions, manual fixes) which don't represent
+    Anthropic iterating on a prompt.
+    """
+    version_commits = _get_version_commits(repo)
+
+    log = _run_git(
+        repo, "log", "--all", "--name-only", "--pretty=format:COMMIT:%H",
+        "--diff-filter=MR", "--", f"{PROMPTS_DIR}/*.md",
+    )
+    counts: dict[str, int] = {}
+    current_sha: str = ""
+    current_files: list[str] = []
+
+    for line in log.strip().split("\n"):
+        line = line.strip()
+        if line.startswith("COMMIT:"):
+            # Process previous commit — only if it's a version release
+            if current_sha and current_sha in version_commits:
+                for f in current_files:
+                    counts[f] = counts.get(f, 0) + 1
+            current_sha = line[7:]
+            current_files = []
+        elif line.endswith(".md") and line:
+            filename = line.split("/")[-1]
+            current_files.append(filename)
+
+    # Process last commit
+    if current_sha and current_sha in version_commits:
+        for f in current_files:
+            counts[f] = counts.get(f, 0) + 1
+
+    # Include all prompts that ever existed (even if 0 modifications)
+    all_log = _run_git(
+        repo, "log", "--all", "--name-only", "--pretty=format:",
+        "--diff-filter=AMRD", "--", f"{PROMPTS_DIR}/*.md",
+    )
+    for line in all_log.strip().split("\n"):
+        line = line.strip()
+        if line.endswith(".md") and line:
+            filename = line.split("/")[-1]
+            if filename not in counts:
+                counts[filename] = 0
+
     return counts
 
 
